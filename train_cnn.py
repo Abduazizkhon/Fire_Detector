@@ -67,7 +67,6 @@ class FireDataset(Dataset):
         self.image_paths = []
         self.labels = []
         
-        # Load fire images (label 1)
         fire_path = self.root_dir / '1'
         # fire_path = f"{self.root_dir}/1"
         for img_path in fire_path.glob('*.*'):
@@ -75,7 +74,6 @@ class FireDataset(Dataset):
             self.image_paths.append(str(img_path))
             self.labels.append(1)
         
-        # Load non-fire images (label 0)
         no_fire_path = self.root_dir / '0'
         # no_fire_path = f"{self.root_dir}/0"
         for img_path in no_fire_path.glob('*.*'):
@@ -98,7 +96,7 @@ class FireDataset(Dataset):
 
 train_transform = transforms.Compose([
     transforms.ToPILImage(),
-    transforms.Resize((254, 254)),
+    transforms.Resize((224, 224)),
     transforms.RandomHorizontalFlip(),
     transforms.RandomRotation(15),
     transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
@@ -109,7 +107,7 @@ train_transform = transforms.Compose([
 # Validation transforms (no augmentation)
 val_transform = transforms.Compose([
     transforms.ToPILImage(),
-    transforms.Resize((254, 254)),
+    transforms.Resize((224, 224)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
