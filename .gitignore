@@ -1,0 +1,4 @@
+dl2425_challenge_dataset/
+*.pth
+runs/
+__pycache__/
