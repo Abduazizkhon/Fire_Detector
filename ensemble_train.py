@@ -8,6 +8,8 @@ import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import numpy as np
+from train_2 import FireClassifier
+
 
 class EnsembleModel(nn.Module):
     def __init__(self, input_size=3):  # input_size is number of models
@@ -26,17 +28,23 @@ class EnsembleModel(nn.Module):
         return self.model(x)
 
 def load_base_models(device):
-    # Load CNN model (best accuracy 98.05%)
+    # Load Our base CNN model (best accuracy 98.05%)
     cnn_model = FireClassifierCNN().to(device)
-    cnn_checkpoint = torch.load('best_fire_classifier_cnn_v2_mean.pth')
+    cnn_checkpoint = torch.load('best_fire_classifier_cnn_v2_means.pth')
     cnn_model.load_state_dict(cnn_checkpoint['model_state_dict'])
+
+
+    # ### a new resnext model with 98.78% accuracy
+    # cnn_model = FireClassifier().to(device)
+    # cnn_model_path = "best_model.pth"
+    # cnn_checkpoint = torch.load(cnn_model_path) 
+    # cnn_model.load_state_dict(cnn_checkpoint['model_state_dict'])
     
     # Load ViT transfer learning model (best accuracy 98.7%)
     vit_model = FireClassifierViT().to(device)
     vit_checkpoint = torch.load('best_fire_classifier_vit_v2_mean.pth')
     vit_model.load_state_dict(vit_checkpoint['model_state_dict'])
     
-    # Load ResNet model
     resnet_model = DeepResNet().to(device)
     resnet_checkpoint = torch.load('best_deep_resnet.pth')
     # resnet_model.load_state_dict(resnet_checkpoint['model_state_dict'])
@@ -57,13 +65,11 @@ def get_model_predictions(models, dataloader, device):
             images = images.to(device)
             batch_predictions = []
             
-            # Get predictions from each model
             for model in [cnn_model, vit_model, resnet_model]:
                 outputs = model(images)
                 probs = torch.sigmoid(outputs.squeeze())
                 batch_predictions.append(probs.cpu())
             
-            # Stack predictions from all models
             stacked_preds = torch.stack(batch_predictions, dim=1)
             all_predictions.append(stacked_preds)
             all_labels.append(labels)
@@ -73,22 +79,18 @@ def get_model_predictions(models, dataloader, device):
 def train_ensemble(base_models, train_loader, val_loader, device, num_epochs=50):
     writer = SummaryWriter('runs/ensemble')
     
-    # Create ensemble model
     ensemble = EnsembleModel(input_size=len(base_models)).to(device)
     criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(ensemble.parameters(), lr=0.001)
     
-    # Get predictions from base models
     print("Getting training predictions...")
     train_preds, train_labels = get_model_predictions(base_models, train_loader, device)
     print("Getting validation predictions...")
     val_preds, val_labels = get_model_predictions(base_models, val_loader, device)
     
-    # Create datasets from predictions
     train_dataset = torch.utils.data.TensorDataset(train_preds, train_labels)
     val_dataset = torch.utils.data.TensorDataset(val_preds, val_labels)
     
-    # Create dataloaders
     train_ensemble_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     val_ensemble_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
     
@@ -97,7 +99,6 @@ def train_ensemble(base_models, train_loader, val_loader, device, num_epochs=50)
     patience_counter = 0
     
     for epoch in range(num_epochs):
-        # Training
         ensemble.train()
         train_loss = 0
         train_correct = 0
@@ -119,7 +120,6 @@ def train_ensemble(base_models, train_loader, val_loader, device, num_epochs=50)
         
         train_acc = 100 * train_correct / train_total
         
-        # Validation
         ensemble.eval()
         val_loss = 0
         val_correct = 0
